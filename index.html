@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Focus Clash</title>
+  <style>
+    :root{--bg:#10131a;--panel:#191e29;--text:#f5f7fb;--muted:#9ea8bb;--accent:#4ade80;--bad:#fb7185;--line:#2b3345;--btn:#2563eb;}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent} body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:18px}.app{width:100%;max-width:760px}.screen{display:none}.screen.active{display:block}.card{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.25)}h1{font-size:48px;margin:0 0 6px;letter-spacing:1px}h2{margin:0 0 12px;font-size:30px}.sub{color:var(--muted);font-size:18px;margin-bottom:22px}.row{display:flex;gap:12px;flex-wrap:wrap}.btn{border:0;border-radius:16px;background:var(--btn);color:#fff;font-weight:800;font-size:20px;padding:18px 22px;min-height:62px;cursor:pointer;flex:1}.btn.secondary{background:#374151}.btn.good{background:#16a34a}.btn.bad{background:#dc2626}.btn:active{transform:scale(.98)}input{width:100%;font-size:26px;padding:17px;border-radius:16px;border:1px solid var(--line);background:#0c1018;color:var(--text);text-align:center;text-transform:uppercase;margin:12px 0}.code{font-size:54px;font-weight:900;letter-spacing:8px;text-align:center;background:#0c1018;border:1px solid var(--line);border-radius:20px;padding:18px;margin:15px 0}.status{color:var(--muted);font-size:16px;margin-top:12px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:16px}.pill{background:#0c1018;border:1px solid var(--line);border-radius:999px;padding:10px 14px;color:var(--muted);font-weight:700}.gamebox{height:430px;background:#0c1018;border:1px solid var(--line);border-radius:20px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;touch-action:manipulation}.grid{display:grid;grid-template-columns:repeat(4,72px);gap:16px}.tile{width:72px;height:72px;border-radius:16px;border:3px solid #334155;background:#1f2937;display:flex;align-items:center;justify-content:center;font-size:36px}.tile.target{background:#22c55e}.tile.wrong{background:#334155}.bigshape{width:150px;height:150px;border-radius:28px;background:#22c55e}.circle{border-radius:50%}.triangle{width:0;height:0;background:transparent;border-left:82px solid transparent;border-right:82px solid transparent;border-bottom:150px solid #22c55e;border-radius:0}.flash{font-size:92px}.center{text-align:center}.rank{list-style:none;padding:0;margin:15px 0}.rank li{display:flex;justify-content:space-between;background:#0c1018;border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:8px 0;font-size:20px}.small{font-size:14px;color:var(--muted)}.hitarea{position:absolute;border-radius:50%;width:86px;height:86px;background:#22c55e;border:5px solid #bbf7d0}.dot{width:70px;height:70px;border-radius:50%;position:absolute;background:#22c55e}.hidden{visibility:hidden}@media(max-width:560px){h1{font-size:38px}.gamebox{height:360px}.grid{grid-template-columns:repeat(4,58px);gap:10px}.tile{width:58px;height:58px;font-size:28px}.btn{font-size:18px}.code{font-size:42px}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <section id="home" class="screen active"><div class="card center"><h1>FOCUS<br>CLASH</h1><div class="sub">Fokus • Reaktion • Wahrnehmung</div><div class="row"><button class="btn good" id="hostBtn">SPIEL HOSTEN</button><button class="btn" id="joinBtn">BEITRETEN</button></div><p class="small">GitHub Pages • WebRTC • kein Firebase</p></div></section>
+  <section id="host" class="screen"><div class="card"><button class="btn secondary" id="back1">←</button><h2>HOST</h2><div class="code" id="hostCode">----</div><button class="btn good" id="startBtn">START</button><p class="status" id="hostStatus">Andere Tablets: gleiche URL öffnen und Code eingeben.</p><ol class="rank" id="hostPlayers"></ol></div></section>
+  <section id="join" class="screen"><div class="card"><button class="btn secondary" id="back2">←</button><h2>JOIN</h2><input id="nameInput" placeholder="Name" maxlength="12"><input id="codeInput" placeholder="Code" maxlength="6"><button class="btn good" id="connectBtn">VERBINDEN</button><p class="status" id="joinStatus"></p></div></section>
+  <section id="game" class="screen"><div class="card"><div class="top"><div class="pill" id="roundName">●</div><div class="pill" id="timer">10</div><div class="pill" id="score">0</div></div><div class="gamebox" id="gamebox"></div></div></section>
+  <section id="board" class="screen"><div class="card"><h2>RANGLISTE</h2><ol class="rank" id="rankList"></ol><button class="btn good" id="nextBtn">WEITER</button></div></section>
+</div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const screens=['home','host','join','game','board'];
+  function show(id){screens.forEach(s=>$(s).classList.toggle('active',s===id));}
+  function code(){return Math.random().toString(36).slice(2,6).toUpperCase();}
+  let isHost=false, peer=null, conns=[], hostConn=null, room='', me='Spieler', score=0, round=0, timer=null, left=10, answered=false;
+  let players={host:{name:'Host',score:0}};
+  const games=[
+    {name:'Finde Grün', type:'findGreen'},
+    {name:'Reaktion', type:'reaction'},
+    {name:'Merken', type:'memory'},
+    {name:'Form', type:'shape'},
+    {name:'Unikat', type:'odd'}
+  ];
+  function safeStatus(id,msg){$(id).textContent=msg;}
+  function broadcast(msg){conns.forEach(c=>{try{c.send(msg)}catch(e){}})}
+  function sendHost(msg){ if(hostConn) try{hostConn.send(msg)}catch(e){} }
+  function updatePlayers(){ $('hostPlayers').innerHTML=Object.entries(players).map(([id,p])=>`<li><span>${p.name}</span><b>${p.score||0}</b></li>`).join(''); }
+  function renderBoard(data){ const arr=Object.values(data||players).sort((a,b)=>(b.score||0)-(a.score||0)); $('rankList').innerHTML=arr.map((p,i)=>`<li><span>${i+1}. ${p.name}</span><b>${p.score||0}</b></li>`).join(''); show('board'); }
+  function startPeerHost(){
+    isHost=true; room=code(); $('hostCode').textContent=room; show('host');
+    peer=new Peer('focus-'+room,{debug:0});
+    peer.on('open',()=>safeStatus('hostStatus','Bereit. Code eingeben lassen.'));
+    peer.on('connection',conn=>{ conns.push(conn); const id=conn.peer; players[id]={name:'Spieler',score:0}; updatePlayers(); conn.on('data',msg=>hostData(conn,msg)); conn.on('close',()=>{delete players[id]; conns=conns.filter(c=>c!==conn);updatePlayers();}); });
+    peer.on('error',e=>safeStatus('hostStatus','Verbindung: '+e.type)); updatePlayers();
+  }
+  function connectToHost(){
+    me=($('nameInput').value||'Spieler').trim().slice(0,12); room=($('codeInput').value||'').trim().toUpperCase();
+    if(!room){safeStatus('joinStatus','Code eingeben.');return}
+    peer=new Peer(null,{debug:0}); safeStatus('joinStatus','Verbinde...');
+    peer.on('open',()=>{ hostConn=peer.connect('focus-'+room,{reliable:true}); hostConn.on('open',()=>{safeStatus('joinStatus','Verbunden. Warte auf Start.'); sendHost({kind:'join',name:me});}); hostConn.on('data',playerData); hostConn.on('close',()=>safeStatus('joinStatus','Verbindung getrennt.')); });
+    peer.on('error',e=>safeStatus('joinStatus','Fehler: '+e.type));
+  }
+  function hostData(conn,msg){ if(!msg||!msg.kind)return; const id=conn.peer; if(msg.kind==='join'){players[id]={name:msg.name||'Spieler',score:0}; updatePlayers(); conn.send({kind:'players',players});} if(msg.kind==='answer'){ const p=players[id]; if(p){p.score=(p.score||0)+(msg.points||0); updatePlayers(); broadcast({kind:'players',players});}} }
+  function playerData(msg){ if(!msg||!msg.kind)return; if(msg.kind==='start'){score=msg.score||score; runRound(msg.round,msg.seed);} if(msg.kind==='board'){renderBoard(msg.players);} if(msg.kind==='players'){/* ok */} }
+  function hostStartRound(){ const seed=Math.floor(Math.random()*999999); broadcast({kind:'start',round,seed}); runRound(round,seed); }
+  function endRound(){ clearInterval(timer); if(isHost){ players.host.score=score; broadcast({kind:'board',players}); renderBoard(players);} else { show('board'); $('rankList').innerHTML='<li><span>Warte auf Host</span><b></b></li>'; } }
+  function startClock(){ left=10; $('timer').textContent=left; clearInterval(timer); timer=setInterval(()=>{left--; $('timer').textContent=left; if(left<=0) endRound();},1000); }
+  function points(){ return Math.max(10, 100 + left*10); }
+  function answer(ok){ if(answered)return; answered=true; const pts=ok?points():-20; score+=pts; $('score').textContent=score; if(!isHost)sendHost({kind:'answer',points:pts}); setTimeout(endRound,350); }
+  function rng(seed){let x=seed||1; return ()=>{x=(x*9301+49297)%233280; return x/233280;}}
+  function runRound(i,seed){ answered=false; const g=games[i%games.length]; $('roundName').textContent=g.name; $('score').textContent=score; show('game'); startClock(); renderGame(g.type,seed); }
+  function renderGame(type,seed){ const box=$('gamebox'); box.innerHTML=''; const r=rng(seed);
+    if(type==='findGreen'){ const grid=document.createElement('div'); grid.className='grid'; const target=Math.floor(r()*16); for(let i=0;i<16;i++){const t=document.createElement('button');t.className='tile '+(i===target?'target':'wrong'); t.onclick=()=>answer(i===target); grid.appendChild(t)} box.appendChild(grid); }
+    if(type==='reaction'){ const wait=900+Math.floor(r()*1800); const txt=document.createElement('div'); txt.className='flash'; txt.textContent='●'; txt.style.color='#64748b'; box.appendChild(txt); box.onclick=()=>answer(false); setTimeout(()=>{ if(answered)return; txt.style.color='#22c55e'; box.onclick=()=>answer(true);},wait); }
+    if(type==='memory'){ const grid=document.createElement('div'); grid.className='grid'; const target=Math.floor(r()*16); for(let i=0;i<16;i++){const t=document.createElement('button');t.className='tile'; if(i===target)t.classList.add('target'); grid.appendChild(t)} box.appendChild(grid); setTimeout(()=>{[...grid.children].forEach((t,i)=>{t.className='tile wrong';t.onclick=()=>answer(i===target);});},1400); }
+    if(type==='shape'){ const want=Math.floor(r()*3); const row=document.createElement('div'); row.className='row'; ['■','●','▲'].forEach((s,i)=>{const b=document.createElement('button');b.className='btn secondary'; b.style.fontSize='54px'; b.textContent=s; b.onclick=()=>answer(i===want); row.appendChild(b)}); const prompt=document.createElement('div'); prompt.className='flash'; prompt.textContent=['■','●','▲'][want]; box.appendChild(prompt); setTimeout(()=>{box.innerHTML='';box.appendChild(row)},900); }
+    if(type==='odd'){ const grid=document.createElement('div'); grid.className='grid'; const target=Math.floor(r()*16); for(let i=0;i<16;i++){const t=document.createElement('button');t.className='tile';t.textContent=i===target?'◆':'◇';t.onclick=()=>answer(i===target);grid.appendChild(t)} box.appendChild(grid); }
+  }
+  $('hostBtn').onclick=startPeerHost; $('joinBtn').onclick=()=>show('join'); $('back1').onclick=()=>show('home'); $('back2').onclick=()=>show('home'); $('connectBtn').onclick=connectToHost; $('startBtn').onclick=()=>{round=0;score=0;Object.values(players).forEach(p=>p.score=0);hostStartRound();}; $('nextBtn').onclick=()=>{ if(isHost){round++; hostStartRound();} else show('game'); };
+  window.addEventListener('error',e=>alert('Fehler: '+e.message));
+})();
+</script>
+</body>
+</html>
