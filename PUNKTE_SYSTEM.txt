@@ -1,0 +1,7 @@
+Neues Punktesystem:
+- Richtige Antwort: +100
+- Zeitbonus: bis +100 extra
+- Falsche Antwort: 0
+- Schnellere Spieler bekommen mehr Punkte
+- Host sieht Live-Rangliste
+- Endrangliste nach 20 Aufgaben
